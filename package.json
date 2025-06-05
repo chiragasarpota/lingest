@@ -1,6 +1,6 @@
 {
   "name": "lingest",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "description": "Generates a single Markdown file by concatenating all text files recursively from the current directory. Ideal for LLM context from local projects.",
   "main": "index.js",
   "bin": {

@@ -195,6 +195,12 @@ const argv = yargs(hideBin(process.argv))
     type: "boolean",
     default: false,
   })
+  .option("no-tree", {
+    describe:
+      "Skip generating the directory tree structure at the beginning of the output",
+    type: "boolean",
+    default: false,
+  })
   .help("h")
   .alias("h", "help")
   .version()
@@ -230,6 +236,119 @@ function log(message, level = "info") {
   } else {
     console.log(message);
   }
+}
+
+// Function to generate directory tree structure
+function generateDirectoryTree(effectiveIgnorePatterns) {
+  const tree = [];
+  const processedPaths = new Set();
+
+  function buildTree(currentPath, prefix = "", isLast = true) {
+    const relativePath = path.relative(CWD, currentPath).replace(/\\/g, "/");
+
+    // Skip if already processed or if it's the root
+    if (processedPaths.has(currentPath) || currentPath === CWD) {
+      // For root, just process children
+      if (currentPath === CWD) {
+        let entries;
+        try {
+          entries = fs.readdirSync(currentPath, { withFileTypes: true });
+        } catch (error) {
+          return;
+        }
+
+        // Filter and sort entries
+        const validEntries = entries
+          .filter((entry) => {
+            const fullPath = path.join(currentPath, entry.name);
+            const relativePathForMatch = path
+              .relative(CWD, fullPath)
+              .replace(/\\/g, "/");
+
+            // Skip output file
+            if (path.resolve(fullPath) === OUTPUT_FILE_PATH) {
+              return false;
+            }
+
+            // Check ignore patterns
+            return !micromatch.isMatch(
+              relativePathForMatch,
+              effectiveIgnorePatterns
+            );
+          })
+          .sort((a, b) => {
+            // Directories first, then files, both alphabetically
+            if (a.isDirectory() && !b.isDirectory()) return -1;
+            if (!a.isDirectory() && b.isDirectory()) return 1;
+            return a.name.localeCompare(b.name);
+          });
+
+        validEntries.forEach((entry, index) => {
+          const isLastEntry = index === validEntries.length - 1;
+          buildTree(path.join(currentPath, entry.name), "", isLastEntry);
+        });
+      }
+      return;
+    }
+
+    processedPaths.add(currentPath);
+
+    const name = path.basename(currentPath);
+    const connector = isLast ? "└── " : "├── ";
+    tree.push(prefix + connector + name);
+
+    // If it's a directory, process its contents
+    let stat;
+    try {
+      stat = fs.statSync(currentPath);
+    } catch (error) {
+      return;
+    }
+
+    if (stat.isDirectory()) {
+      let entries;
+      try {
+        entries = fs.readdirSync(currentPath, { withFileTypes: true });
+      } catch (error) {
+        return;
+      }
+
+      // Filter and sort entries
+      const validEntries = entries
+        .filter((entry) => {
+          const fullPath = path.join(currentPath, entry.name);
+          const relativePathForMatch = path
+            .relative(CWD, fullPath)
+            .replace(/\\/g, "/");
+
+          // Skip output file
+          if (path.resolve(fullPath) === OUTPUT_FILE_PATH) {
+            return false;
+          }
+
+          // Check ignore patterns
+          return !micromatch.isMatch(
+            relativePathForMatch,
+            effectiveIgnorePatterns
+          );
+        })
+        .sort((a, b) => {
+          // Directories first, then files, both alphabetically
+          if (a.isDirectory() && !b.isDirectory()) return -1;
+          if (!a.isDirectory() && b.isDirectory()) return 1;
+          return a.name.localeCompare(b.name);
+        });
+
+      const newPrefix = prefix + (isLast ? "    " : "│   ");
+      validEntries.forEach((entry, index) => {
+        const isLastEntry = index === validEntries.length - 1;
+        buildTree(path.join(currentPath, entry.name), newPrefix, isLastEntry);
+      });
+    }
+  }
+
+  buildTree(CWD);
+  return tree.join("\n");
 }
 
 function generateMarkdown() {
@@ -342,13 +461,25 @@ function generateMarkdown() {
 
   processPath(CWD);
 
+  // Generate directory tree (if not disabled)
+  let treeHeader = "";
+  if (!argv.noTree) {
+    log("Generating directory tree...");
+    const directoryTree = generateDirectoryTree(effectiveIgnorePatterns);
+    treeHeader = `# Directory Structure\n\n\`\`\`\n${path.basename(
+      CWD
+    )}/\n${directoryTree}\n\`\`\`\n\n# File Contents\n\n`;
+  }
+
   if (argv.dryRun) {
     log(`\n[Dry Run] Summary:`);
     log(`[Dry Run] Would process ${processedFilesCount} file(s).`);
     log(`[Dry Run] Output would be saved to: ${OUTPUT_FILE_PATH}`);
-    // Optionally print the structure if needed for dry run
-    // const dryRunStructure = allFileContents.map(entry => entry.split('\n')[1]).join('\n');
-    // log(`[Dry Run] File structure:\n${dryRunStructure}`);
+    if (!argv.noTree) {
+      log(`[Dry Run] Directory tree would be included at the beginning.`);
+    } else {
+      log(`[Dry Run] Directory tree generation is disabled.`);
+    }
     return;
   }
 
@@ -358,11 +489,14 @@ function generateMarkdown() {
       "info"
     );
     try {
-      fs.writeFileSync(
-        OUTPUT_FILE_PATH,
-        "# No files found or processed based on current include/ignore rules."
+      const emptyContent =
+        treeHeader +
+        "No files found or processed based on current include/ignore rules.";
+      fs.writeFileSync(OUTPUT_FILE_PATH, emptyContent);
+      const treeMessage = argv.noTree ? "" : " with directory tree";
+      log(
+        `Generated ${OUTPUT_FILENAME}${treeMessage} (no file content processed).`
       );
-      log(`Generated empty ${OUTPUT_FILENAME} as no content was processed.`);
     } catch (error) {
       log(
         `Failed to write empty output file ${OUTPUT_FILE_PATH}: ${error.message}`,
@@ -372,11 +506,12 @@ function generateMarkdown() {
     return;
   }
 
-  const finalMarkdown = allFileContents.join("\n\n");
+  const finalMarkdown = treeHeader + allFileContents.join("\n\n");
   try {
     fs.writeFileSync(OUTPUT_FILE_PATH, finalMarkdown);
+    const treeMessage = argv.noTree ? "" : " with directory tree";
     log(
-      `Successfully generated ${OUTPUT_FILENAME} with content from ${processedFilesCount} file(s).`
+      `Successfully generated ${OUTPUT_FILENAME}${treeMessage} and content from ${processedFilesCount} file(s).`
     );
   } catch (error) {
     log(

@@ -6,6 +6,7 @@ This is particularly useful for creating a single context file for Large Languag
 
 ## Features
 
+- **Directory Tree Visualization:** Automatically generates a visual directory tree structure at the beginning of the output, showing the project layout with standard tree characters.
 - **Recursive Scanning:** Traverses directories deep to find all relevant files.
 - **Content Concatenation:** Combines the content of all found text files into one output.
 - **Clear File Headers:** Each file's content is demarcated with `FILE: path/to/file.ext` for easy identification.
@@ -66,15 +67,39 @@ lingest [options]
 | `--force`   | `-f`  | Force overwrite of the output file if it already exists.                                                                                               | `false`             |
 | `--quiet`   | `-q`  | Suppress informational messages; only errors will be shown.                                                                                            | `false`             |
 | `--dry-run` |       | List files that would be processed and the final output path, but don't actually write the file.                                                       | `false`             |
+| `--no-tree` |       | Skip generating the directory tree structure at the beginning of the output.                                                                           | `false`             |
 | `--help`    | `-h`  | Show this help message and exit.                                                                                                                       |                     |
 | `--version` | `-v`  | Show the program's version number and exit.                                                                                                            |                     |
 
 ### Default Ignored Items
 
-By default, `lingest` ignores:
+By default, `lingest` ignores common files and directories that are typically not needed in code analysis:
 
-- `node_modules/**`
-- `.git/**`
+**Directories:**
+
+- `node_modules`, `.git`, `__pycache__`, `.pytest_cache`, `.tox`, `.nox`, `.mypy_cache`, `.ruff_cache`, `.hypothesis`
+- `bower_components`, `.npm`, `.yarn`, `.pnpm-store`, `.gradle`, `build`, `.settings`, `.build`, `.bundle`
+- `vendor/bundle`, `target`, `pkg`, `obj`, `packages`, `bin`, `.svn`, `.hg`
+- `venv`, `.venv`, `env`, `.env`, `virtualenv`, `.idea`, `.vscode`, `.vs`
+- `.cache`, `.sass-cache`, `dist`, `out`, `site-packages`, `.docusaurus`, `.next`, `.nuxt`
+- `.terraform`, `vendor`, `xcuserdata`
+
+**Files:**
+
+- Python: `*.pyc`, `*.pyo`, `*.pyd`, `.coverage`, `poetry.lock`, `Pipfile.lock`
+- JavaScript/Node: `package-lock.json`, `yarn.lock`, `bun.lock`, `bun.lockb`
+- Java: `*.class`, `*.jar`, `*.war`, `*.ear`, `*.nar`, `.classpath`, `*.gradle`, `.project`
+- C/C++: `*.o`, `*.obj`, `*.dll`, `*.dylib`, `*.exe`, `*.lib`, `*.out`, `*.a`, `*.pdb`
+- Swift/Xcode: `*.xcodeproj`, `*.xcworkspace`, `*.xcuserstate`, `.swiftpm`
+- Ruby: `*.gem`, `Gemfile.lock`, `.ruby-version`, `.rvmrc`
+- Rust: `Cargo.lock`, `**/*.rs.bk`
+- .NET/C#: `*.suo`, `*.user`, `*.nupkg`
+- Version control: `.gitignore`, `.gitattributes`, `.gitmodules`
+- Media files: `*.svg`, `*.png`, `*.jpg`, `*.jpeg`, `*.gif`, `*.ico`, `*.pdf`, `*.mov`, `*.mp4`, `*.mp3`, `*.wav`
+- Temporary/cache: `*.log`, `*.bak`, `*.swp`, `*.tmp`, `*.temp`, `.DS_Store`, `Thumbs.db`
+- Build artifacts: `*.egg-info`, `*.egg`, `*.whl`, `*.so`
+- Minified files: `*.min.js`, `*.min.css`, `*.map`
+- Terraform: `*.tfstate*`
 - The output file itself (e.g., `lingest_output.md`, or whatever is specified by `--output`)
 
 ### Glob Patterns
@@ -152,6 +177,12 @@ By default, `lingest` ignores:
 
    ```bash
    lingest -q -o context.md
+   ```
+
+9. **Generate output without directory tree:**
+
+   ```bash
+   lingest --no-tree
    ```
 
 ## Output Format
