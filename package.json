@@ -1,6 +1,6 @@
 {
   "name": "lingest",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Generates a single Markdown file by concatenating all text files recursively from the current directory. Ideal for LLM context from local projects.",
   "main": "index.js",
   "bin": {
@@ -12,7 +12,7 @@
     "build:debug": "napi build --platform",
     "prepublishOnly": "napi prepublish -t npm",
     "artifacts": "napi artifacts",
-    "postinstall": "node -e \"try { require('./index.node') } catch(e) { require('child_process').execSync('npm run build', {stdio: 'inherit'}) }\""
+    "postinstall": "node ./scripts/postinstall.js"
   },
   "napi": {
     "name": "lingest",
@@ -60,5 +60,13 @@
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.18.0"
+  },
+  "optionalDependencies": {
+    "@napi-rs/cli": "^2.18.0",
+    "lingest-win32-x64-msvc": "2.0.0",
+    "lingest-darwin-x64": "2.0.0",
+    "lingest-linux-x64-gnu": "2.0.0",
+    "lingest-darwin-arm64": "2.0.0",
+    "lingest-linux-arm64-gnu": "2.0.0"
   }
 }
