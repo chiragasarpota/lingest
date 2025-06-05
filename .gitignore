@@ -11,4 +11,4 @@ lingest_output.md
 *.log
 build/
 .napi/
-*.node 
+.needs-build 

@@ -16,113 +16,353 @@ let nativeModule;
 try {
   nativeModule = require("..");
 } catch (err) {
+  console.error("Failed to load native module:", err.message);
+  console.error("This platform may not be supported yet.");
   console.error(
-    "Failed to load native module. Did you run 'npm run build'?\n",
-    err.message
+    "Supported platforms: darwin-arm64, darwin-x64, linux-x64, linux-arm64, win32-x64"
   );
   process.exit(1);
 }
 
 const DEFAULT_OUTPUT_FILENAME = "lingest_output.md";
 const DEFAULT_IGNORE_GLOBS_FOR_CONTENT = [
-  // Version control & dependencies
+  // Python
+  "**/*.pyc",
+  "**/*.pyo",
+  "**/*.pyd",
+  "**/__pycache__/**",
+  "**/__pycache__",
+  "**/.pytest_cache/**",
+  "**/.pytest_cache",
+  "**/.coverage",
+  "**/.tox/**",
+  "**/.tox",
+  "**/.nox/**",
+  "**/.nox",
+  "**/.mypy_cache/**",
+  "**/.mypy_cache",
+  "**/.ruff_cache/**",
+  "**/.ruff_cache",
+  "**/.hypothesis/**",
+  "**/.hypothesis",
+  "**/poetry.lock",
+  "**/Pipfile.lock",
+  "**/*.egg-info/**",
+  "**/*.egg-info",
+  "**/*.egg",
+  "**/*.whl",
+  "**/site-packages/**",
+  "**/site-packages",
+
+  // JavaScript/Node
   "**/node_modules/**",
   "**/node_modules",
-  "**/.git/**",
-  "**/.git",
-  "**/vendor/**",
-  "**/third_party/**",
-  "**/external/**",
-  // System files
-  "**/.DS_Store",
-  "**/thumbs.db",
-  "**/desktop.ini",
-  // Lock files
+  "**/bower_components/**",
+  "**/bower_components",
   "**/package-lock.json",
   "**/yarn.lock",
-  "**/pnpm-lock.yaml",
-  "**/Cargo.lock",
-  "**/Pipfile.lock",
-  "**/composer.lock",
-  "**/Gemfile.lock",
-  "**/poetry.lock",
-  // IDE / editor
-  "**/.vscode/**",
-  "**/.idea/**",
-  "**/.vs/**",
-  "**/*.swp",
-  "**/*.swo",
-  "**/*~",
-  "**/.project",
-  "**/.classpath",
-  "**/.settings/**",
-  // Cache directories
-  "**/.cache/**",
-  "**/.parcel-cache/**",
-  "**/.webpack/**",
-  "**/.rollup/**",
-  "**/.eslintcache",
-  "**/.stylelintcache",
-  "**/.rpt2_cache/**",
+  "**/.npm/**",
+  "**/.npm",
   "**/.yarn/**",
-  "**/.pnpm/**",
-  "**/.rush/**",
-  "**/.nyc_output/**",
-  // Build & output
-  "**/dist/**",
+  "**/.yarn",
+  "**/.pnpm-store/**",
+  "**/.pnpm-store",
+  "**/bun.lock",
+  "**/bun.lockb",
+
+  // Java
+  "**/*.class",
+  "**/*.jar",
+  "**/*.war",
+  "**/*.ear",
+  "**/*.nar",
+  "**/.gradle/**",
+  "**/.gradle",
   "**/build/**",
-  "**/coverage/**",
-  "**/out/**",
-  "**/.next/**",
-  "**/.nuxt/**",
-  "**/public/build/**",
-  "**/_site/**",
-  "**/site/**",
-  "**/docs/_build/**",
-  // Temp / backup
-  "**/*.tmp",
-  "**/*.temp",
-  "**/*.bak",
-  "**/*.backup",
-  "**/*.orig",
-  "**/*.rej",
-  "**/*.swp",
-  // Env files
+  "**/build",
+  "**/.settings/**",
+  "**/.settings",
+  "**/.classpath",
+  "**/gradle-app.setting",
+  "**/*.gradle",
+  "**/.project",
+
+  // C/C++
+  "**/*.o",
+  "**/*.obj",
+  "**/*.dll",
+  "**/*.dylib",
+  "**/*.exe",
+  "**/*.lib",
+  "**/*.out",
+  "**/*.a",
+  "**/*.pdb",
+
+  // Swift/Xcode
+  "**/.build/**",
+  "**/.build",
+  "**/*.xcodeproj/**",
+  "**/*.xcodeproj",
+  "**/*.xcworkspace/**",
+  "**/*.xcworkspace",
+  "**/*.pbxuser",
+  "**/*.mode1v3",
+  "**/*.mode2v3",
+  "**/*.perspectivev3",
+  "**/*.xcuserstate",
+  "**/xcuserdata/**",
+  "**/xcuserdata",
+  "**/.swiftpm/**",
+  "**/.swiftpm",
+
+  // Ruby
+  "**/*.gem",
+  "**/.bundle/**",
+  "**/.bundle",
+  "**/vendor/bundle/**",
+  "**/vendor/bundle",
+  "**/Gemfile.lock",
+  "**/.ruby-version",
+  "**/.ruby-gemset",
+  "**/.rvmrc",
+
+  // Rust
+  "**/Cargo.lock",
+  "**/*.rs.bk",
+  "**/target/**",
+  "**/target",
+
+  // Go
+  "**/pkg/**",
+  "**/pkg",
+  "**/bin/**",
+  "**/bin",
+
+  // .NET/C#
+  "**/obj/**",
+  "**/obj",
+  "**/*.suo",
+  "**/*.user",
+  "**/*.userosscache",
+  "**/*.sln.docstates",
+  "**/packages/**",
+  "**/packages",
+  "**/*.nupkg",
+
+  // Version control
+  "**/.git/**",
+  "**/.git",
+  "**/.svn/**",
+  "**/.svn",
+  "**/.hg/**",
+  "**/.hg",
+  "**/.gitignore",
+  "**/.gitattributes",
+  "**/.gitmodules",
+
+  // Images and media
+  "**/*.svg",
+  "**/*.png",
+  "**/*.jpg",
+  "**/*.jpeg",
+  "**/*.gif",
+  "**/*.ico",
+  "**/*.pdf",
+  "**/*.mov",
+  "**/*.mp4",
+  "**/*.mp3",
+  "**/*.wav",
+  "**/*.bmp",
+  "**/*.webp",
+  "**/*.tiff",
+  "**/*.psd",
+  "**/*.raw",
+  "**/*.heif",
+  "**/*.indd",
+  "**/*.ai",
+  "**/*.eps",
+  "**/*.avi",
+  "**/*.wmv",
+  "**/*.flv",
+  "**/*.mkv",
+  "**/*.webm",
+  "**/*.vob",
+  "**/*.ogv",
+  "**/*.m4v",
+  "**/*.3gp",
+  "**/*.3g2",
+  "**/*.mpeg",
+  "**/*.mpg",
+  "**/*.flac",
+  "**/*.aac",
+  "**/*.ogg",
+  "**/*.wma",
+  "**/*.m4a",
+  "**/*.opus",
+  "**/*.aiff",
+  "**/*.ape",
+
+  // Virtual environments
+  "**/venv/**",
+  "**/venv",
+  "**/.venv/**",
+  "**/.venv",
+  "**/env/**",
+  "**/env",
   "**/.env",
+  "**/virtualenv/**",
+  "**/virtualenv",
   "**/.env.local",
   "**/.env.*.local",
   "**/.env.production",
-  // Generated
+
+  // IDEs and editors
+  "**/.idea/**",
+  "**/.idea",
+  "**/.vscode/**",
+  "**/.vscode",
+  "**/.vs/**",
+  "**/.vs",
+  "**/*.swo",
+  "**/*.swn",
+  "**/*.swp",
+  "**/*.sublime-*",
+
+  // Temporary and cache files
+  "**/*.log",
+  "**/*.bak",
+  "**/*.tmp",
+  "**/*.temp",
+  "**/.cache/**",
+  "**/.cache",
+  "**/.sass-cache/**",
+  "**/.sass-cache",
+  "**/.eslintcache",
+  "**/.DS_Store",
+  "**/Thumbs.db",
+  "**/desktop.ini",
+  "**/*.backup",
+  "**/*.orig",
+  "**/*.rej",
+  "**/*~",
+
+  // Build directories and artifacts
+  "**/build/**",
+  "**/build",
+  "**/dist/**",
+  "**/dist",
+  "**/out/**",
+  "**/out",
+  "**/coverage/**",
+  "**/coverage",
+  "**/.next/**",
+  "**/.next",
+  "**/.nuxt/**",
+  "**/.nuxt",
+  "**/public/build/**",
+  "**/_site/**",
+  "**/_site",
+  "**/site/**",
+  "**/site",
+  "**/docs/_build/**",
+  "**/.docusaurus/**",
+  "**/.docusaurus",
+
+  // Cache directories
+  "**/.parcel-cache/**",
+  "**/.parcel-cache",
+  "**/.webpack/**",
+  "**/.webpack",
+  "**/.rollup/**",
+  "**/.rollup",
+  "**/.stylelintcache",
+  "**/.rpt2_cache/**",
+  "**/.rpt2_cache",
+  "**/.pnpm/**",
+  "**/.pnpm",
+  "**/.rush/**",
+  "**/.rush",
+  "**/.nyc_output/**",
+  "**/.nyc_output",
+
+  // Generated files
   "**/*generated*",
   "**/*gen*",
   "**/*.generated.*",
-  // Media
-  "**/*.{jpg,jpeg,png,gif,bmp,svg,ico,webp,tiff,psd,raw,heif,indd,ai,eps}",
-  "**/*.{mp4,avi,mov,wmv,flv,mkv,webm,vob,ogv,m4v,3gp,3g2,mpeg,mpg}",
-  "**/*.{mp3,wav,flac,aac,ogg,wma,m4a,opus,aiff,ape}",
+
   // Archives
-  "**/*.{zip,tar,gz,rar,7z,bz2,xz,iso,dmg,pkg}",
-  // Executables
-  "**/*.{exe,dll,so,dylib,lib,a,o,app,deb,rpm,msi,pkg}",
-  // Docs
-  "**/*.{pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,odp}",
+  "**/*.zip",
+  "**/*.tar",
+  "**/*.gz",
+  "**/*.rar",
+  "**/*.7z",
+  "**/*.bz2",
+  "**/*.xz",
+  "**/*.iso",
+  "**/*.dmg",
+  "**/*.pkg",
+
+  // Documents
+  "**/*.doc",
+  "**/*.docx",
+  "**/*.xls",
+  "**/*.xlsx",
+  "**/*.ppt",
+  "**/*.pptx",
+  "**/*.odt",
+  "**/*.ods",
+  "**/*.odp",
+
   // Fonts
-  "**/*.{ttf,otf,woff,woff2,eot,fon,fnt}",
-  // DBs
-  "**/*.{db,sqlite,sqlite3,mdb,accdb}",
-  // Compiled
-  "**/*.{pyc,pyo,class,jar,war,ear}",
-  // Minified
-  "**/*.{min.js,min.css}",
-  // Data
-  "**/*.{csv,tsv}",
+  "**/*.ttf",
+  "**/*.otf",
+  "**/*.woff",
+  "**/*.woff2",
+  "**/*.eot",
+  "**/*.fon",
+  "**/*.fnt",
+
+  // Databases
+  "**/*.db",
+  "**/*.sqlite",
+  "**/*.sqlite3",
+  "**/*.mdb",
+  "**/*.accdb",
+
+  // Minified files
+  "**/*.min.js",
+  "**/*.min.css",
+
+  // Source maps
+  "**/*.map",
+
+  // Terraform
+  "**/.terraform/**",
+  "**/.terraform",
+  "**/*.tfstate*",
+
+  // Dependencies in various languages
+  "**/vendor/**",
+  "**/vendor",
+  "**/third_party/**",
+  "**/third_party",
+  "**/external/**",
+  "**/external",
+
+  // Data files
+  "**/*.csv",
+  "**/*.tsv",
   "**/*data*.json",
   "**/*fixture*.json",
   "**/*mock*.json",
   "**/*.xml",
+
   // Logs
-  "**/*.log",
   "**/logs/**",
+  "**/logs",
+
+  // Gitingest
+  "**/digest.txt",
 ];
 
 const argv = yargs(hideBin(process.argv))
@@ -202,6 +442,12 @@ function log(msg, level = "info") {
 }
 
 function main() {
+  log(`Starting lingest in directory: ${CWD}`);
+  log(`Output will be saved to: ${OUTPUT_FILE_PATH}`);
+  if (userInclude.length > 0) {
+    log(`Including files matching: ${userInclude.join(", ")}`);
+  }
+
   // Prevent accidental overwrite
   if (!argv.force && !argv.dryRun && fs.existsSync(OUTPUT_FILE_PATH)) {
     log(
@@ -230,11 +476,29 @@ function main() {
     const result = nativeModule.processDirectory(options);
 
     if (argv.dryRun) {
-      log(
-        "[Dry Run] Summary:\n" +
-          JSON.stringify({ processed: result.processed_count }, null, 2)
-      );
-      if (result.tree && !argv.noTree) log(result.tree);
+      log(`\n[Dry Run] --- Summary ---`);
+      if (!argv.noTree && result.tree) {
+        log(
+          `[Dry Run] Directory Structure Preview:\n================================================\n${result.tree}\n================================================`
+        );
+      } else if (!argv.noTree) {
+        log(
+          `[Dry Run] No directory structure to include based on rules, or --no-tree specified.`
+        );
+      }
+      if (result.processed_count > 0) {
+        log(
+          `\n[Dry Run] Would include content from ${result.processed_count} file(s):`
+        );
+        result.file_contents.forEach((file) => {
+          log(`FILE: ${file.path}`);
+        });
+      } else {
+        log(
+          `[Dry Run] No files would be processed for content based on rules.`
+        );
+      }
+      log(`[Dry Run] Output would be saved to: ${OUTPUT_FILE_PATH}`);
       return;
     }
 

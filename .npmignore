@@ -1,0 +1,20 @@
+# Source files (not needed for runtime)
+src/
+target/
+Cargo.toml
+Cargo.lock
+build.rs
+
+# Development files
+.git/
+.gitignore
+.cargo/
+.github/
+
+# Build artifacts we don't need
+*.log
+.DS_Store
+.needs-build
+
+# Keep only the built .node file for the current platform
+# The index.js will handle loading the right one 
