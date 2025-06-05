@@ -7,8 +7,14 @@ const { hideBin } = require("yargs/helpers");
 const micromatch = require("micromatch");
 
 const DEFAULT_OUTPUT_FILENAME = "lingest_output.md";
-const DEFAULT_IGNORE_DIRS = ["node_modules", ".git"];
-const DEFAULT_IGNORE_FILES = []; // Output file will be handled separately
+const DEFAULT_IGNORE_DIRS_FOR_TREE = ["node_modules", ".git"]; // For tree generation (name match)
+const DEFAULT_IGNORE_GLOBS_FOR_CONTENT = [
+  // For content processing (glob match)
+  "**/node_modules/**",
+  "**/node_modules",
+  "**/.git/**",
+  "**/.git",
+];
 
 const argv = yargs(hideBin(process.argv))
   .usage("Usage: $0 [options]")
@@ -49,6 +55,11 @@ const argv = yargs(hideBin(process.argv))
     type: "boolean",
     default: false,
   })
+  .option("no-tree", {
+    describe: "Do not include the directory tree structure in the output",
+    type: "boolean",
+    default: false,
+  })
   .help("h")
   .alias("h", "help")
   .version()
@@ -57,48 +68,134 @@ const argv = yargs(hideBin(process.argv))
 
 const CWD = process.cwd();
 const OUTPUT_FILENAME = argv.output;
-const OUTPUT_FILE_PATH = path.resolve(CWD, OUTPUT_FILENAME); // Use resolve for absolute path
+const OUTPUT_FILE_PATH = path.resolve(CWD, OUTPUT_FILENAME);
 
-const userIgnorePatterns = argv.ignore
+const userIgnoreGlobs = argv.ignore
   ? argv.ignore
       .split(",")
       .map((p) => p.trim())
       .filter((p) => p)
   : [];
-const userIncludePatterns = argv.include
+const userIncludeGlobs = argv.include
   ? argv.include
       .split(",")
       .map((p) => p.trim())
       .filter((p) => p)
   : [];
 
-// Logger function
 function log(message, level = "info") {
-  if (argv.quiet && level === "info") {
-    return;
-  }
-  if (level === "warn") {
-    console.warn(message);
-  } else if (level === "error") {
-    console.error(message);
-  } else {
-    console.log(message);
-  }
+  if (argv.quiet && level === "info") return;
+  if (level === "warn") console.warn(message);
+  else if (level === "error") console.error(message);
+  else console.log(message);
 }
 
-function generateMarkdown() {
-  log(`Starting lingest in directory: ${CWD}`);
-  if (userIncludePatterns.length > 0) {
-    log(`Including files matching: ${userIncludePatterns.join(", ")}`);
+/**
+ * Generates a string representation of the directory tree.
+ * @param {string} dirPath Current directory path to scan.
+ * @param {string} basePath The root path of the scan, for relative path calculation.
+ * @param {string} currentPrefix Prefix for the current line in the tree (e.g., "│   ").
+ * @param {string[]} defaultIgnoreDirs Names of directories to ignore by default.
+ * @param {string[]} userIgnoreGlobs User-provided glob patterns for ignoring.
+ * @param {string[]} userIncludeGlobs User-provided glob patterns for including.
+ * @param {string} absOutputPath Absolute path of the output file to ignore.
+ * @returns {string} The formatted tree string.
+ */
+function generateTreeString(
+  dirPath,
+  basePath,
+  currentPrefix,
+  defaultIgnoreDirs,
+  userIgnoreGlobs,
+  userIncludeGlobs,
+  absOutputPath
+) {
+  let tree = "";
+  let entries;
+  try {
+    entries = fs
+      .readdirSync(dirPath, { withFileTypes: true })
+      .filter((entry) => {
+        const fullEntryPath = path.resolve(dirPath, entry.name);
+        return fullEntryPath !== absOutputPath; // Always ignore the output file itself
+      })
+      .sort((a, b) => {
+        if (a.isDirectory() && !b.isDirectory()) return -1;
+        if (!a.isDirectory() && b.isDirectory()) return 1;
+        return a.name.localeCompare(b.name);
+      });
+  } catch (e) {
+    log(`[Tree] Cannot read directory ${dirPath}: ${e.message}`, "warn");
+    return "";
   }
-  const effectiveIgnorePatterns = [
-    ...DEFAULT_IGNORE_DIRS.map((dir) => `**/${dir}/**`), // Ignore directory contents
-    ...DEFAULT_IGNORE_DIRS.map((dir) => `**/${dir}`), // Ignore directory itself
-    ...DEFAULT_IGNORE_FILES.map((file) => `**/${file}`),
-    `**/${path.basename(OUTPUT_FILE_PATH)}`, // Always ignore the output file itself using its basename
-    ...userIgnorePatterns,
+
+  entries.forEach((entry, index) => {
+    const fullEntryPath = path.join(dirPath, entry.name);
+    const relativeEntryPathForGlob = path
+      .relative(basePath, fullEntryPath)
+      .replace(/\\/g, "/");
+    const isLastInCurrentDir = index === entries.length - 1;
+
+    if (entry.isDirectory() && defaultIgnoreDirs.includes(entry.name)) {
+      log(`[Tree] Ignoring default dir: ${relativeEntryPathForGlob}`, "info");
+      return;
+    }
+
+    if (micromatch.isMatch(relativeEntryPathForGlob, userIgnoreGlobs)) {
+      log(`[Tree] Ignoring user glob: ${relativeEntryPathForGlob}`, "info");
+      return;
+    }
+
+    const connector = isLastInCurrentDir ? "└── " : "├── ";
+    const entryDisplayName = entry.isDirectory()
+      ? `${entry.name}/`
+      : entry.name;
+
+    if (entry.isDirectory()) {
+      tree += `${currentPrefix}${connector}${entryDisplayName}\n`;
+      const nextPrefix = currentPrefix + (isLastInCurrentDir ? "    " : "│   ");
+      tree += generateTreeString(
+        fullEntryPath,
+        basePath,
+        nextPrefix,
+        defaultIgnoreDirs,
+        userIgnoreGlobs,
+        userIncludeGlobs,
+        absOutputPath
+      );
+    } else if (entry.isFile()) {
+      if (
+        userIncludeGlobs.length > 0 &&
+        !micromatch.isMatch(relativeEntryPathForGlob, userIncludeGlobs)
+      ) {
+        log(
+          `[Tree] Skipping file (not in include): ${relativeEntryPathForGlob}`,
+          "info"
+        );
+        return;
+      }
+      tree += `${currentPrefix}${connector}${entryDisplayName}\n`;
+    }
+  });
+  return tree;
+}
+
+function lingest() {
+  log(`Starting lingest in directory: ${CWD}`);
+  log(`Output will be saved to: ${OUTPUT_FILE_PATH}`);
+  if (userIncludeGlobs.length > 0) {
+    log(`Including files matching: ${userIncludeGlobs.join(", ")}`);
+  }
+  const effectiveIgnoreGlobsForContent = [
+    ...DEFAULT_IGNORE_GLOBS_FOR_CONTENT,
+    `**/${path.basename(OUTPUT_FILE_PATH)}`, // Glob pattern for output file
+    ...userIgnoreGlobs,
   ];
-  log(`Ignoring patterns: ${effectiveIgnorePatterns.join(", ")}`);
+  log(
+    `Effective ignore globs for content: ${effectiveIgnoreGlobsForContent.join(
+      ", "
+    )}`
+  );
 
   if (!argv.force && !argv.dryRun && fs.existsSync(OUTPUT_FILE_PATH)) {
     log(
@@ -108,10 +205,28 @@ function generateMarkdown() {
     process.exit(1);
   }
 
+  // --- Generate Tree Structure ---
+  let formattedTree = "";
+  if (!argv.noTree) {
+    log("Generating directory tree structure...", "info");
+    // For tree generation, userIgnoreGlobs are used directly.
+    // defaultIgnoreDirs are simple names for directory name matching.
+    formattedTree = generateTreeString(
+      CWD,
+      CWD,
+      "",
+      DEFAULT_IGNORE_DIRS_FOR_TREE,
+      userIgnoreGlobs,
+      userIncludeGlobs,
+      OUTPUT_FILE_PATH
+    ).trimEnd();
+  }
+
+  // --- Process File Contents ---
   let allFileContents = [];
   let processedFilesCount = 0;
 
-  function processPath(currentPath) {
+  function processPathForContent(currentPath) {
     let entries;
     try {
       entries = fs.readdirSync(currentPath, { withFileTypes: true });
@@ -125,35 +240,31 @@ function generateMarkdown() {
 
     for (const entry of entries) {
       const fullPath = path.join(currentPath, entry.name);
-      // Get relative path for matching, always use forward slashes for micromatch
-      const relativePathForMatch = path
+      const relativePathForGlob = path
         .relative(CWD, fullPath)
         .replace(/\\/g, "/");
 
-      // Skip the output file itself explicitly by absolute path comparison
-      if (path.resolve(fullPath) === OUTPUT_FILE_PATH) {
-        continue;
-      }
+      if (path.resolve(fullPath) === OUTPUT_FILE_PATH) continue;
 
-      // Check against ignore patterns
-      if (micromatch.isMatch(relativePathForMatch, effectiveIgnorePatterns)) {
+      if (
+        micromatch.isMatch(relativePathForGlob, effectiveIgnoreGlobsForContent)
+      ) {
         log(
-          `Ignoring (due to ignore pattern): ${relativePathForMatch}`,
+          `[Content] Ignoring (due to ignore pattern): ${relativePathForGlob}`,
           "info"
         );
         continue;
       }
 
       if (entry.isDirectory()) {
-        processPath(fullPath);
+        processPathForContent(fullPath);
       } else if (entry.isFile()) {
-        // If include patterns are specified, the file must match at least one
         if (
-          userIncludePatterns.length > 0 &&
-          !micromatch.isMatch(relativePathForMatch, userIncludePatterns)
+          userIncludeGlobs.length > 0 &&
+          !micromatch.isMatch(relativePathForGlob, userIncludeGlobs)
         ) {
           log(
-            `Skipping (not in include patterns): ${relativePathForMatch}`,
+            `[Content] Skipping (not in include patterns): ${relativePathForGlob}`,
             "info"
           );
           continue;
@@ -165,7 +276,9 @@ function generateMarkdown() {
         const header = `================================================\nFILE: ${relativePathForHeader}\n================================================\n`;
 
         if (argv.dryRun) {
-          log(`[Dry Run] Would process file: ${relativePathForHeader}`);
+          log(
+            `[Dry Run] Would process file for content: ${relativePathForHeader}`
+          );
           allFileContents.push(
             header +
               `[Dry Run] Content of ${relativePathForHeader} would be here.\n`
@@ -174,49 +287,85 @@ function generateMarkdown() {
           continue;
         }
 
-        let fileContentStr;
         try {
-          fileContentStr = fs.readFileSync(fullPath, "utf-8");
+          const fileContentStr = fs.readFileSync(fullPath, "utf-8");
           allFileContents.push(header + fileContentStr);
-          log(`Processed file: ${relativePathForHeader}`);
+          log(`[Content] Processed file: ${relativePathForHeader}`);
           processedFilesCount++;
         } catch (error) {
           log(
-            `Skipping file ${relativePathForHeader}. Could not read as UTF-8 text. It might be binary or an encoding issue.`,
+            `[Content] Skipping file ${relativePathForHeader}. Could not read as UTF-8 text.`,
             "warn"
           );
           allFileContents.push(
             header +
-              `[Content not included: Could not be read as UTF-8 text. It might be a binary file, have an unsupported encoding, or there might be a permission issue.]\n`
+              `[Content not included: Could not be read as UTF-8 text. Might be binary or encoding issue.]\n`
           );
         }
       }
     }
   }
 
-  processPath(CWD);
+  log("Processing file contents...", "info");
+  processPathForContent(CWD);
 
+  // --- Handle Dry Run Output ---
   if (argv.dryRun) {
-    log(`\n[Dry Run] Summary:`);
-    log(`[Dry Run] Would process ${processedFilesCount} file(s).`);
+    log(`\n[Dry Run] --- Summary ---`);
+    if (!argv.noTree && formattedTree) {
+      log(
+        `[Dry Run] Directory Structure Preview:\n================================================\n${formattedTree}\n================================================`
+      );
+    } else if (!argv.noTree) {
+      log(
+        `[Dry Run] No directory structure to include based on rules, or --no-tree specified.`
+      );
+    }
+    if (processedFilesCount > 0) {
+      log(
+        `\n[Dry Run] Would include content from ${processedFilesCount} file(s):`
+      );
+      allFileContents.forEach((entry) => {
+        // In dry run, allFileContents has placeholder content
+        const lines = entry.split("\n");
+        log(lines[1]); // Log the "FILE: ..." line
+      });
+    } else {
+      log(`[Dry Run] No files would be processed for content based on rules.`);
+    }
     log(`[Dry Run] Output would be saved to: ${OUTPUT_FILE_PATH}`);
-    // Optionally print the structure if needed for dry run
-    // const dryRunStructure = allFileContents.map(entry => entry.split('\n')[1]).join('\n');
-    // log(`[Dry Run] File structure:\n${dryRunStructure}`);
     return;
   }
 
-  if (processedFilesCount === 0) {
-    log(
-      "No files were processed based on current include/ignore rules.",
-      "info"
+  // --- Prepare Final Output ---
+  let outputParts = [];
+  if (!argv.noTree && formattedTree) {
+    outputParts.push(
+      "Directory Structure:\n================================================\n" +
+        formattedTree +
+        "\n================================================"
     );
+  }
+
+  if (processedFilesCount > 0) {
+    const contentHeader =
+      (outputParts.length > 0 ? "\n\n" : "") +
+      "File Contents:\n================================================\n";
+    outputParts.push(
+      contentHeader +
+        allFileContents.join("\n\n") +
+        "\n================================================"
+    );
+  }
+
+  if (outputParts.length === 0) {
+    log("No content (tree or files) to write based on current rules.", "info");
     try {
       fs.writeFileSync(
         OUTPUT_FILE_PATH,
-        "# No files found or processed based on current include/ignore rules."
+        "# No content (tree or files) to display based on current rules."
       );
-      log(`Generated empty ${OUTPUT_FILENAME} as no content was processed.`);
+      log(`Generated empty ${OUTPUT_FILENAME}.`);
     } catch (error) {
       log(
         `Failed to write empty output file ${OUTPUT_FILE_PATH}: ${error.message}`,
@@ -226,12 +375,18 @@ function generateMarkdown() {
     return;
   }
 
-  const finalMarkdown = allFileContents.join("\n\n");
+  const finalMarkdownOutput = outputParts.join("").trim();
   try {
-    fs.writeFileSync(OUTPUT_FILE_PATH, finalMarkdown);
-    log(
-      `Successfully generated ${OUTPUT_FILENAME} with content from ${processedFilesCount} file(s).`
+    fs.writeFileSync(
+      OUTPUT_FILE_PATH,
+      finalMarkdownOutput || "# No content generated."
     );
+    let successMessage = `Successfully generated ${OUTPUT_FILENAME}.`;
+    if (!argv.noTree && formattedTree)
+      successMessage += " Included directory structure.";
+    if (processedFilesCount > 0)
+      successMessage += ` Included content from ${processedFilesCount} file(s).`;
+    log(successMessage);
   } catch (error) {
     log(
       `Failed to write output file ${OUTPUT_FILE_PATH}: ${error.message}`,
@@ -240,4 +395,4 @@ function generateMarkdown() {
   }
 }
 
-generateMarkdown();
+lingest();

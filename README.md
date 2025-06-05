@@ -6,6 +6,7 @@ This is particularly useful for creating a single context file for Large Languag
 
 ## Features
 
+- **Directory Tree Generation:** Outputs a visual tree of the directory structure.
 - **Recursive Scanning:** Traverses directories deep to find all relevant files.
 - **Content Concatenation:** Combines the content of all found text files into one output.
 - **Clear File Headers:** Each file's content is demarcated with `FILE: path/to/file.ext` for easy identification.
@@ -65,6 +66,7 @@ lingest [options]
 | `--include` | `-n`  | Comma-separated list of glob patterns to include. If specified, only files matching these patterns will be processed (still respects ignore patterns). | `""` (include all)  |
 | `--force`   | `-f`  | Force overwrite of the output file if it already exists.                                                                                               | `false`             |
 | `--quiet`   | `-q`  | Suppress informational messages; only errors will be shown.                                                                                            | `false`             |
+| `--no-tree` |       | Do not include the directory tree structure in the output file.                                                                                        | `false`             |
 | `--dry-run` |       | List files that would be processed and the final output path, but don't actually write the file.                                                       | `false`             |
 | `--help`    | `-h`  | Show this help message and exit.                                                                                                                       |                     |
 | `--version` | `-v`  | Show the program's version number and exit.                                                                                                            |                     |
