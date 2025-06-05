@@ -6,20 +6,22 @@ This is particularly useful for creating a single context file for Large Languag
 
 ## Features
 
-- **Directory Tree Generation:** Outputs a visual tree of the directory structure.
-- **Recursive Scanning:** Traverses directories deep to find all relevant files.
-- **Content Concatenation:** Combines the content of all found text files into one output.
-- **Clear File Headers:** Each file's content is demarcated with `FILE: path/to/file.ext` for easy identification.
-- **Customizable Output:** Specify the name of the generated Markdown file.
+- **High Performance:** Core logic implemented in Rust for blazing fast directory traversal and file processing
+- **Smart Filtering:** Automatically excludes binary files, images, videos, and other non-text content
+- **Directory Tree Generation:** Outputs a visual tree of the directory structure
+- **Recursive Scanning:** Traverses directories deep to find all relevant files
+- **Content Concatenation:** Combines the content of all found text files into one output
+- **Clear File Headers:** Each file's content is demarcated with `FILE: path/to/file.ext` for easy identification
+- **Customizable Output:** Specify the name of the generated Markdown file
 - **Flexible Filtering:**
 
-  - **Ignore Patterns:** Use glob patterns to exclude specific files or directories (e.g., build artifacts, temporary files).
-  - **Include Patterns:** Focus the tool on specific file types or directories using glob patterns.
+  - **Ignore Patterns:** Use glob patterns to exclude specific files or directories (e.g., build artifacts, temporary files)
+  - **Include Patterns:** Focus the tool on specific file types or directories using glob patterns
 
-- **Overwrite Protection:** Prevents accidental overwriting of existing output files unless explicitly forced.
-- **Quiet Mode:** Suppresses informational logs, ideal for scripting or CI/CD pipelines.
-- **Dry Run Mode:** Preview which files would be included and where the output would be saved, without writing anything.
-- **Standard CLI Interface:** Includes `--help` and `--version` flags.
+- **Overwrite Protection:** Prevents accidental overwriting of existing output files unless explicitly forced
+- **Quiet Mode:** Suppresses informational logs, ideal for scripting or CI/CD pipelines
+- **Dry Run Mode:** Preview which files would be included and where the output would be saved, without writing anything
+- **Standard CLI Interface:** Includes `--help` and `--version` flags
 
 ## Installation
 
@@ -49,6 +51,8 @@ Once installed globally, run it directly:
 lingest [options]
 ```
 
+**Note:** The first time you install `lingest`, it will build the native Rust module automatically. This requires Rust to be installed on your system. If you don't have Rust, you can install it from [rustup.rs](https://rustup.rs/).
+
 ## Usage
 
 Navigate to the root directory of the project you want to process, then run:
@@ -75,9 +79,22 @@ lingest [options]
 
 By default, `lingest` ignores:
 
-- `node_modules/**`
-- `.git/**`
-- The output file itself (e.g., `lingest_output.md`, or whatever is specified by `--output`)
+- `node_modules/**` and `.git/**` directories
+- `.DS_Store` and `thumbs.db` system files
+- Binary executables: `*.exe`, `*.dll`, `*.so`, `*.dylib`, etc.
+- Image files: `*.jpg`, `*.png`, `*.gif`, `*.svg`, etc.
+- Video files: `*.mp4`, `*.avi`, `*.mov`, etc.
+- Audio files: `*.mp3`, `*.wav`, `*.flac`, etc.
+- Archive files: `*.zip`, `*.tar`, `*.gz`, `*.rar`, etc.
+- Document files: `*.pdf`, `*.doc`, `*.docx`, etc.
+- Font files: `*.ttf`, `*.otf`, `*.woff`, etc.
+- Database files: `*.db`, `*.sqlite`, etc.
+- Compiled files: `*.pyc`, `*.class`, `*.jar`, etc.
+- Minified files: `*.min.js`, `*.min.css`
+- Common build/output directories: `dist/`, `build/`, `coverage/`, `.cache/`, `.next/`, `.nuxt/`, `out/`
+- The output file itself (e.g., `lingest_output.md`)
+
+This ensures that only UTF-8 text files (mainly source code and documentation) are included in the output.
 
 ### Glob Patterns
 
@@ -158,7 +175,7 @@ By default, `lingest` ignores:
 
 ## Output Format
 
-Each file’s content in the generated Markdown file will be structured like this:
+Each file's content in the generated Markdown file will be structured like this:
 
 ```markdown
 # FILE: path/to/your/file.ext
@@ -179,7 +196,7 @@ Each file’s content in the generated Markdown file will be structured like thi
 If `lingest` encounters a non-UTF-8 or unreadable file, it will:
 
 1. Log a warning (unless in quiet mode).
-2. Include the file’s header.
+2. Include the file's header.
 3. Add `[Content not included: Could not be read as UTF-8 text...]`.
 
 This preserves file structure and alerts you about skipped files.
@@ -198,3 +215,13 @@ Issues and suggestions? Open one on [GitHub](https://github.com/chiragasarpota/l
 ## License
 
 MIT License. See `LICENSE` file for details.
+
+## Technical Details
+
+`lingest` uses a hybrid architecture:
+
+- The CLI interface is implemented in JavaScript for npm compatibility
+- The core directory traversal and file processing logic is implemented in Rust for maximum performance
+- The Rust code is compiled to a native Node.js module using [napi-rs](https://napi.rs/)
+
+This design provides the best of both worlds: easy installation via npm/npx and high-performance file processing.
